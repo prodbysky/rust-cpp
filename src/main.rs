@@ -2,7 +2,7 @@ use core::fmt;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    process::exit,
+    process::{self, exit},
 };
 
 use clap::Parser;
@@ -102,27 +102,35 @@ impl Preprocessor {
         Ok(())
     }
 
+    fn process_line(&mut self, line: Vec<&str>) -> Result<(), PreprocessorError> {
+        match line[0] {
+            "#define" => self.process_define(line)?,
+            "#include" => self.process_include(line)?,
+            "#undef" => self.process_undef(line)?,
+            "#region" | "#endregion" => {}
+            _ => {
+                eprintln!("Not supported directive found! {}", line[0]);
+                exit(1);
+            }
+        };
+        Ok(())
+    }
+
     fn run(&mut self) -> Result<String, PreprocessorError> {
         let mut result = String::new();
 
         let input = self.input.clone();
-        for line in input.lines() {
-            if line.starts_with('#') {
-                let line = line.split_whitespace().collect::<Vec<_>>();
-                match line[0] {
-                    "#define" => self.process_define(line)?,
-                    "#include" => self.process_include(line)?,
-                    "#undef" => self.process_undef(line)?,
-                    "#region" | "#endregion" => {}
-                    _ => {
-                        eprintln!("Not supported directive found! {}", line[0]);
-                        exit(1);
-                    }
-                };
-            }
-            result.push_str(line);
-        }
+        let mut idx = 0;
+        let lines: Vec<&str> = input.lines().collect::<Vec<&str>>();
+        while idx < lines.len() {
+            let line = lines[idx];
+            let split_line = line.split_whitespace().collect::<Vec<_>>();
 
+            self.process_line(split_line)?;
+
+            result.push_str(line);
+            idx += 1;
+        }
         Ok(result)
     }
 }
